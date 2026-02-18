@@ -1,0 +1,50 @@
+{
+    "name": "DS_stg_table",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_AureSQL_Retail",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+            {
+                "name": "order_id",
+                "type": "int",
+                "precision": 10
+            },
+            {
+                "name": "order_date",
+                "type": "date"
+            },
+            {
+                "name": "customer_id",
+                "type": "varchar"
+            },
+            {
+                "name": "product",
+                "type": "varchar"
+            },
+            {
+                "name": "category",
+                "type": "varchar"
+            },
+            {
+                "name": "quantity",
+                "type": "int",
+                "precision": 10
+            },
+            {
+                "name": "price",
+                "type": "decimal",
+                "precision": 10,
+                "scale": 2
+            }
+        ],
+        "typeProperties": {
+            "schema": "dbo",
+            "table": "stg_retail_sales"
+        }
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}

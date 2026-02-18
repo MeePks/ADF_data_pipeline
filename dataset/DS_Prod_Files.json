@@ -1,0 +1,37 @@
+{
+    "name": "DS_Prod_Files",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_Blob_Retail",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "ds_container": {
+                "type": "string"
+            },
+            "ds_file_name": {
+                "type": "string"
+            }
+        },
+        "annotations": [],
+        "type": "DelimitedText",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobStorageLocation",
+                "fileName": {
+                    "value": "@dataset().ds_file_name",
+                    "type": "Expression"
+                },
+                "container": {
+                    "value": "@dataset().ds_container",
+                    "type": "Expression"
+                }
+            },
+            "columnDelimiter": ",",
+            "escapeChar": "\\",
+            "firstRowAsHeader": true,
+            "quoteChar": "\""
+        },
+        "schema": []
+    }
+}

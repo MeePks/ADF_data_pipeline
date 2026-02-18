@@ -1,0 +1,452 @@
+{
+    "name": "PL_Prod_Load",
+    "properties": {
+        "activities": [
+            {
+                "name": "gm_list_files",
+                "type": "GetMetadata",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "dataset": {
+                        "referenceName": "DS_Folder",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "p_container": {
+                                "value": "@pipeline().parameters.p_container",
+                                "type": "Expression"
+                            }
+                        }
+                    },
+                    "fieldList": [
+                        "childItems"
+                    ],
+                    "storeSettings": {
+                        "type": "AzureBlobStorageReadSettings",
+                        "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                        "type": "BinaryReadSettings"
+                    }
+                }
+            },
+            {
+                "name": "fe_each_file",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "gm_list_files",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('gm_list_files').output.childItems",
+                        "type": "Expression"
+                    },
+                    "batchCount": 2,
+                    "activities": [
+                        {
+                            "name": "sv_set_filename",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_file_name",
+                                "value": {
+                                    "value": "@item().name",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "lk_last_success_file",
+                            "type": "Lookup",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_set_filename",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "AzureSqlSource",
+                                    "sqlReaderQuery": "SELECT MAX(file_name) AS last_file\nFROM etl_file_audit\nWHERE load_status = 'SUCCESS'",
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "dataset": {
+                                    "referenceName": "DS_stg_table",
+                                    "type": "DatasetReference"
+                                }
+                            }
+                        },
+                        {
+                            "name": "cp_blob_to_staging",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "lk_last_success_file",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "DelimitedTextSource",
+                                    "additionalColumns": [
+                                        {
+                                            "name": "SfileName",
+                                            "value": "$$FILENAME"
+                                        }
+                                    ],
+                                    "storeSettings": {
+                                        "type": "AzureBlobStorageReadSettings",
+                                        "recursive": true,
+                                        "enablePartitionDiscovery": false
+                                    },
+                                    "formatSettings": {
+                                        "type": "DelimitedTextReadSettings"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "AzureSqlSink",
+                                    "writeBehavior": "insert",
+                                    "sqlWriterUseTableLock": false,
+                                    "tableOption": "autoCreate",
+                                    "disableMetricsCollection": false
+                                },
+                                "enableStaging": false,
+                                "parallelCopies": 2,
+                                "dataIntegrationUnits": 4,
+                                "translator": {
+                                    "type": "TabularTranslator",
+                                    "mappings": [
+                                        {
+                                            "source": {
+                                                "name": "order_id",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "order_id",
+                                                "type": "Int32",
+                                                "physicalType": "int"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "order_date",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "order_date",
+                                                "physicalType": "date"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "customer_id",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "customer_id",
+                                                "type": "String",
+                                                "physicalType": "varchar"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "product",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "product",
+                                                "type": "String",
+                                                "physicalType": "varchar"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "category",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "category",
+                                                "type": "String",
+                                                "physicalType": "varchar"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "quantity",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "quantity",
+                                                "type": "Int32",
+                                                "physicalType": "int"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "price",
+                                                "type": "String",
+                                                "physicalType": "String"
+                                            },
+                                            "sink": {
+                                                "name": "price",
+                                                "type": "Decimal",
+                                                "physicalType": "decimal"
+                                            }
+                                        },
+                                        {
+                                            "source": {
+                                                "name": "SfileName",
+                                                "type": "String"
+                                            },
+                                            "sink": {
+                                                "name": "SFileName"
+                                            }
+                                        }
+                                    ],
+                                    "typeConversion": true,
+                                    "typeConversionSettings": {
+                                        "allowDataTruncation": true,
+                                        "treatBooleanAsNumber": false
+                                    }
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "DS_Prod_Files",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "ds_container": {
+                                            "value": "@pipeline().parameters.p_container",
+                                            "type": "Expression"
+                                        },
+                                        "ds_file_name": {
+                                            "value": "@variables('v_file_name')",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "DS_stg_table",
+                                    "type": "DatasetReference"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "sp_load_fact_table",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "cp_blob_to_staging",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[dbo].[sp_load_fact_retail_sales]",
+                                "storedProcedureParameters": {
+                                    "batch_id": {
+                                        "value": {
+                                            "value": "@pipeline().RunId",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "LS_AureSQL_Retail",
+                                "type": "LinkedServiceReference"
+                            }
+                        },
+                        {
+                            "name": "sp_log_error",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "sp_load_fact_table",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[dbo].[sp_log_etl_error]",
+                                "storedProcedureParameters": {
+                                    "activity_name": {
+                                        "value": {
+                                            "value": "@pipeline().Pipeline",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "error_message": {
+                                        "value": "@activity('sp_load_fact_sales').error.message",
+                                        "type": "String"
+                                    },
+                                    "pipeline_name": {
+                                        "value": "@pipeline().Pipeline",
+                                        "type": "String"
+                                    },
+                                    "run_id": {
+                                        "value": {
+                                            "value": "@pipeline().RunId",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "LS_AureSQL_Retail",
+                                "type": "LinkedServiceReference"
+                            }
+                        },
+                        {
+                            "name": "sp_log_error_on_copy",
+                            "type": "SqlServerStoredProcedure",
+                            "dependsOn": [
+                                {
+                                    "activity": "cp_blob_to_staging",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "storedProcedureName": "[dbo].[sp_log_etl_error]",
+                                "storedProcedureParameters": {
+                                    "activity_name": {
+                                        "value": {
+                                            "value": "@activity('cp_blob_to_staging').output.name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "error_message": {
+                                        "value": {
+                                            "value": "@activity('cp_blob_to_staging').error.message",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    },
+                                    "pipeline_name": {
+                                        "value": "@pipeline().Pipeline",
+                                        "type": "String"
+                                    },
+                                    "run_id": {
+                                        "value": {
+                                            "value": "@pipeline().RunId",
+                                            "type": "Expression"
+                                        },
+                                        "type": "String"
+                                    }
+                                }
+                            },
+                            "linkedServiceName": {
+                                "referenceName": "LS_AureSQL_Retail",
+                                "type": "LinkedServiceReference"
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "p_container": {
+                "type": "string",
+                "defaultValue": "retail-data"
+            },
+            "p_folder": {
+                "type": "string"
+            },
+            "p_load_type": {
+                "type": "string"
+            },
+            "p_batch_id": {
+                "type": "string"
+            },
+            "p_last_load_date": {
+                "type": "string",
+                "defaultValue": "1900-01-01"
+            }
+        },
+        "variables": {
+            "v_file_name": {
+                "type": "String"
+            }
+        },
+        "annotations": []
+    }
+}

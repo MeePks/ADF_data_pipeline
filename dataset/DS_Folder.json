@@ -1,0 +1,23 @@
+{
+    "name": "DS_Folder",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "LS_Blob_Retail",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "p_container": {
+                "type": "string"
+            }
+        },
+        "annotations": [],
+        "type": "Binary",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobStorageLocation",
+                "container": "retail-data"
+            }
+        }
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}
